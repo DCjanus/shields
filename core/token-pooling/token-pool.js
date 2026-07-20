@@ -277,37 +277,48 @@ class TokenPool {
 
   // Prepare to start a new batch by obtaining and returning the next usable
   // token.
-  _nextBatch() {
+  _nextBatch(isEligible) {
     let next
 
-    while ((next = this.fifoQueue.shift())) {
+    const fifoQueueLength = this.fifoQueue.length
+    for (let i = 0; i < fifoQueueLength; i++) {
+      next = this.fifoQueue.shift()
       if (!next.isValid) {
         // Discard, and
         continue
       } else if (next.isExhausted) {
         next.freeze()
         this.priorityQueue.enq(next)
-      } else {
+      } else if (isEligible(next)) {
         return next
+      } else {
+        this.fifoQueue.push(next)
       }
     }
 
-    while (
-      !this.priorityQueue.isEmpty() &&
-      (next = this.priorityQueue.peek())
-    ) {
-      if (!next.isValid) {
-        this.priorityQueue.deq()
-        continue
-      } else if (next.isExhausted) {
-        // No need to check any more tokens, since they all reset after this
-        // one.
-        break
-      } else {
-        this.priorityQueue.deq() // deq next
-        next.unfreeze()
-        return next
+    const ineligibleTokens = []
+    try {
+      while (
+        !this.priorityQueue.isEmpty() &&
+        (next = this.priorityQueue.peek())
+      ) {
+        if (!next.isValid) {
+          this.priorityQueue.deq()
+          continue
+        } else if (!isEligible(next)) {
+          ineligibleTokens.push(this.priorityQueue.deq())
+        } else if (next.isExhausted) {
+          // No need to check any more eligible tokens, since they all reset
+          // after this one.
+          break
+        } else {
+          this.priorityQueue.deq() // deq next
+          next.unfreeze()
+          return next
+        }
       }
+    } finally {
+      ineligibleTokens.forEach(token => this.priorityQueue.enq(token))
     }
 
     throw Error('Token pool is exhausted')
@@ -340,14 +351,20 @@ class TokenPool {
    * new use-remaining count and next-reset time. Invoke `invalidate()` to
    * indicate it should not be reused.
    *
+   * @param {Function} isEligible Whether a token can serve this request.
    * @returns {Token} token
    */
-  next() {
+  next(isEligible = () => true) {
     let token = this.currentBatch.token
     const remaining = this.currentBatch.remaining
 
-    if (remaining <= 0 || !token.isValid || token.isExhausted) {
-      token = this._nextBatch()
+    if (
+      remaining <= 0 ||
+      !token.isValid ||
+      token.isExhausted ||
+      !isEligible(token)
+    ) {
+      token = this._nextBatch(isEligible)
       this.currentBatch = {
         token,
         remaining: token.hasReset

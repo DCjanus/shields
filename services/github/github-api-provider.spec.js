@@ -1,6 +1,11 @@
-import { expect } from 'chai'
+import { expect, use } from 'chai'
+import chaiAsPromised from 'chai-as-promised'
 import sinon from 'sinon'
+import log from '../../core/server/log.js'
+import { ImproperlyConfigured } from '../index.js'
 import GithubApiProvider from './github-api-provider.js'
+
+use(chaiAsPromised)
 
 describe('Github API provider', function () {
   const baseUrl = 'https://github-api.example.com'
@@ -10,10 +15,11 @@ describe('Github API provider', function () {
 
   // A stateful mock so recordFailedAttempt/resetFailedAttempts drive the
   // provider's eviction threshold the same way the real Token would.
-  const makeMockToken = id => {
+  const makeMockToken = (id, scopes = []) => {
     let failedAttempts = 0
     return {
       id,
+      data: { scopes },
       update: sinon.spy(),
       invalidate: sinon.spy(),
       recordFailedAttempt: sinon.spy(() => (failedAttempts += 1)),
@@ -72,6 +78,49 @@ describe('Github API provider', function () {
       expect(provider.searchTokens.next).not.to.have.been.called
       expect(provider.standardTokens.next).to.have.been.calledOnce
       expect(provider.graphqlTokens.next).not.to.have.been.called
+    })
+  })
+
+  context('a request requiring OAuth scopes', function () {
+    beforeEach(function () {
+      provider.standardTokens.next.restore()
+      provider.addToken('unscoped-token', { scopes: [] })
+      provider.addToken('unknown-token', { scopes: null })
+      provider.addToken('package-token', {
+        scopes: ['read:packages', 'read:user'],
+      })
+    })
+
+    it('selects a token containing every required scope', async function () {
+      const mockResponse = { res: { statusCode: 500, headers: {} } }
+      const mockRequest = sinon.stub().resolves(mockResponse)
+
+      await provider.fetch(mockRequest, '/repo', {}, ['read:packages'])
+
+      expect(mockRequest.firstCall.args[1].headers.Authorization).to.equal(
+        'token package-token',
+      )
+    })
+
+    it('fails explicitly when no token contains every required scope', async function () {
+      const mockRequest = sinon.stub()
+      const logErrorStub = sinon.stub(log, 'error')
+
+      try {
+        await provider.fetch(mockRequest, '/repo', {}, [
+          'read:packages',
+          'missing:scope',
+        ])
+        expect.fail('Expected scoped token selection to fail')
+      } catch (e) {
+        expect(e).to.be.an.instanceof(ImproperlyConfigured)
+        expect(e.prettyMessage).to.equal(
+          'Unable to select next GitHub token from pool with required scopes: read:packages, missing:scope',
+        )
+      } finally {
+        logErrorStub.restore()
+      }
+      expect(mockRequest).not.to.have.been.called
     })
   })
 

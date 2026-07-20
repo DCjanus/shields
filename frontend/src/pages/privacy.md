@@ -27,11 +27,12 @@ If a request fails, we send an error report to [Sentry](https://sentry.io/), our
 
 Users may optionally authorize our [GitHub OAuth app](https://img.shields.io/github-auth).
 
-Authorizing our app shares with us a GitHub token which has read-only access to public data. We only ask for the minimum permissions necessary. Authorizing the OAuth app doesn't allow us access to your private data or allow us to perform any actions on your behalf.
+Authorizing our app shares with us a GitHub token which has read-only access to public GitHub data and read access to GitHub Packages available to your account. We ask for the `read:packages` scope so package-related badges can use the GitHub Packages API. We only use this permission to read metadata for public packages; we don't access private packages or perform actions on your behalf.
 
-The only information we store is the **GitHub token** and the **timestamp** when you authorized the app.
+The only information we store is the **GitHub token**, its **granted OAuth scopes**, and the **timestamp** when you authorized the app.
 
-- The GitHub token is used solely to increase the rate limit for accessing the GitHub API.
+- The GitHub token is used to increase the rate limit for accessing the GitHub API and to read public package metadata for package-related badges.
+- The granted OAuth scopes let us select a token with the permissions required for a GitHub API request.
 - The signup timestamp is stored for internal record-keeping purposes.
 
 We don't collect or store any other information like your username or email address.
