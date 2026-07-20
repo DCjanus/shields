@@ -20,7 +20,7 @@ In any case, we are clearly making many times more requests to GitHub's API than
 So how are we doing that? Well, we have lots of tokens. To elaborate on that slightly, as a user of shields.io you can choose to share a token with us to help increase our rate limit. Here's how it works:
 
 - Authorize our [OAuth Application](https://img.shields.io/github-auth).
-- This shares with us a GitHub token which has read-only access to public data. We only ask for the minimum permissions necessary. Authorizing the OAuth app doesn't allow us access to your private data or allow us to perform any actions on your behalf.
+- This shares with us a GitHub token which has read-only access to public GitHub data and grants read access to GitHub Packages available to your account. We only use the package permission to read public package metadata and don't perform actions on your behalf.
 - Your token is added to a pool of tokens shared by other users like you.
 - When we need to make a request to the GitHub API, we pick one of the tokens from our pool. We only make a handful of requests with each token before picking another from the pool.
 - If you ever decide you would not like to continue sharing a token with us, you can revoke the Shields.io OAuth app at https://github.com/settings/applications. You can do this at any time. This will de-activate the token you have shared with us and we'll remove it from the pool.
