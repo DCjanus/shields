@@ -53,6 +53,7 @@ describe('Github token acceptor', function () {
     const queryString = qs.stringify({
       client_id: fakeClientId,
       redirect_uri: 'https://img.shields.io/github-auth/done',
+      scope: 'read:packages',
     })
     const expectedLocationHeader = `https://github.com/login/oauth/authorize?${queryString}`
     expect(res.headers.location).to.equal(expectedLocationHeader)
@@ -118,6 +119,9 @@ describe('Github token acceptor', function () {
             '<p>Shields.io has received your app-specific GitHub user token.',
           ),
         ).to.be.true
+        expect(res.body).to.include(
+          'Shields.io only uses this permission to read public package metadata.',
+        )
         expect(onTokenAccepted).to.have.been.calledWith(fakeAccessToken)
       })
 

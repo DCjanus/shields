@@ -14,9 +14,7 @@ function setRoutes({ server, authHelper, onTokenAccepted }) {
       // it's not setting a bad example.
       client_id: authHelper._user,
       redirect_uri: `${baseUrl}/github-auth/done`,
-      // TODO: Request the OAuth scopes needed for scoped GitHub API features.
-      // Remove this TODO once this authorize URL includes a `scope` parameter.
-      // See https://github.com/badges/shields/issues/4169.
+      scope: 'read:packages',
     })
     ask.res.setHeader(
       'Location',
@@ -78,6 +76,9 @@ function setRoutes({ server, authHelper, onTokenAccepted }) {
         '<p>Until you do, you have now increased the rate limit for GitHub ' +
         'requests going through Shields.io. GitHub-related badges are ' +
         'therefore more robust.</p>' +
+        '<p>The token also grants read access to GitHub Packages available ' +
+        'to your account. Shields.io only uses this permission to read ' +
+        'public package metadata.</p>' +
         '<p>Thanks for contributing to a smoother experience for ' +
         'everyone!</p>' +
         '<p><a href="/">Back to the website</a></p>',
