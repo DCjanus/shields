@@ -1,6 +1,7 @@
 import qs from 'qs'
 import { fetch } from '../../../core/base-service/got.js'
 import log from '../../../core/server/log.js'
+import { requestedGithubTokenScopes } from '../github-token-scopes.js'
 
 function setRoutes({ server, authHelper, onTokenAccepted }) {
   const baseUrl = 'https://img.shields.io'
@@ -14,9 +15,7 @@ function setRoutes({ server, authHelper, onTokenAccepted }) {
       // it's not setting a bad example.
       client_id: authHelper._user,
       redirect_uri: `${baseUrl}/github-auth/done`,
-      // TODO: Request the OAuth scopes needed for scoped GitHub API features.
-      // Remove this TODO once this authorize URL includes a `scope` parameter.
-      // See https://github.com/badges/shields/issues/4169.
+      scope: requestedGithubTokenScopes.join(' '),
     })
     ask.res.setHeader(
       'Location',
@@ -78,6 +77,9 @@ function setRoutes({ server, authHelper, onTokenAccepted }) {
         '<p>Until you do, you have now increased the rate limit for GitHub ' +
         'requests going through Shields.io. GitHub-related badges are ' +
         'therefore more robust.</p>' +
+        '<p>The token may also be used to read public GitHub Packages ' +
+        'metadata for package-related badges. Shields.io does not use it ' +
+        'to access private packages.</p>' +
         '<p>Thanks for contributing to a smoother experience for ' +
         'everyone!</p>' +
         '<p><a href="/">Back to the website</a></p>',

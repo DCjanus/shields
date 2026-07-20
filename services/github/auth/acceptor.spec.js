@@ -7,6 +7,7 @@ import nock from 'nock'
 import '../../../core/register-chai-plugins.spec.js'
 import got from '../../../core/got-test-client.js'
 import GithubConstellation from '../github-constellation.js'
+import { requestedGithubTokenScopes } from '../github-token-scopes.js'
 import { setRoutes } from './acceptor.js'
 
 const fakeClientId = 'githubdabomb'
@@ -53,6 +54,7 @@ describe('Github token acceptor', function () {
     const queryString = qs.stringify({
       client_id: fakeClientId,
       redirect_uri: 'https://img.shields.io/github-auth/done',
+      scope: requestedGithubTokenScopes.join(' '),
     })
     const expectedLocationHeader = `https://github.com/login/oauth/authorize?${queryString}`
     expect(res.headers.location).to.equal(expectedLocationHeader)
@@ -118,6 +120,9 @@ describe('Github token acceptor', function () {
             '<p>Shields.io has received your app-specific GitHub user token.',
           ),
         ).to.be.true
+        expect(res.body).to.include(
+          'Shields.io does not use it to access private packages.',
+        )
         expect(onTokenAccepted).to.have.been.calledWith(fakeAccessToken)
       })
 

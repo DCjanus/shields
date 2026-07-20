@@ -2,15 +2,21 @@ import gql from 'graphql-tag'
 import { mergeQueries } from '../../core/base-service/graphql.js'
 import { BaseGraphqlService, BaseJsonService } from '../index.js'
 
-function createRequestFetcher(context) {
+function createRequestFetcher(context, requiredScopes) {
   const { requestFetcher, githubApiProvider } = context
-  return githubApiProvider.fetch.bind(githubApiProvider, requestFetcher)
+  return (url, options) =>
+    githubApiProvider.fetch(requestFetcher, url, options, requiredScopes)
 }
 
 class GithubAuthV3Service extends BaseJsonService {
+  static requiredScopes = []
+
   constructor(context, config) {
     super(context, config)
-    this._requestFetcher = createRequestFetcher(context)
+    this._requestFetcher = createRequestFetcher(
+      context,
+      this.constructor.requiredScopes,
+    )
     this.staticAuthConfigured = true
   }
 }
@@ -21,10 +27,15 @@ class GithubAuthV3Service extends BaseJsonService {
 // useful when consuming GitHub endpoints which are not rate-limited: it
 // avoids wasting API quota on them in production.
 class ConditionalGithubAuthV3Service extends BaseJsonService {
+  static requiredScopes = []
+
   constructor(context, config) {
     super(context, config)
     if (context.githubApiProvider.globalToken) {
-      this._requestFetcher = createRequestFetcher(context)
+      this._requestFetcher = createRequestFetcher(
+        context,
+        this.constructor.requiredScopes,
+      )
       this.staticAuthConfigured = true
     } else {
       this.staticAuthConfigured = false
@@ -33,9 +44,14 @@ class ConditionalGithubAuthV3Service extends BaseJsonService {
 }
 
 class GithubAuthV4Service extends BaseGraphqlService {
+  static requiredScopes = []
+
   constructor(context, config) {
     super(context, config)
-    this._requestFetcher = createRequestFetcher(context)
+    this._requestFetcher = createRequestFetcher(
+      context,
+      this.constructor.requiredScopes,
+    )
     this.staticAuthConfigured = true
   }
 

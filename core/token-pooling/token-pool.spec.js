@@ -35,6 +35,59 @@ describe('The token pool', function () {
     )
   })
 
+  context('when selecting eligible tokens', function () {
+    const hasReadPackagesScope = token =>
+      token.data?.scopes?.includes('read:packages')
+
+    it('skips an ineligible current batch', function () {
+      const tokenPool = new TokenPool({ batchSize: 3 })
+      tokenPool.add('unscoped', { scopes: [] })
+      tokenPool.add('scoped', { scopes: ['read:packages'] })
+
+      expect(tokenPool.next().id).to.equal('unscoped')
+      expect(tokenPool.next(hasReadPackagesScope).id).to.equal('scoped')
+    })
+
+    it('preserves skipped tokens for unconstrained requests', function () {
+      const tokenPool = new TokenPool()
+      tokenPool.add('unscoped', { scopes: [] })
+      tokenPool.add('scoped', { scopes: ['read:packages'] })
+
+      expect(tokenPool.next(hasReadPackagesScope).id).to.equal('scoped')
+      expect(tokenPool.next().id).to.equal('unscoped')
+    })
+
+    it('fails without discarding tokens when none are eligible', function () {
+      const tokenPool = new TokenPool()
+      tokenPool.add('unknown', { scopes: null })
+      tokenPool.add('unscoped', { scopes: [] })
+
+      expect(() => tokenPool.next(hasReadPackagesScope)).to.throw(
+        'Token pool is exhausted',
+      )
+      expect(tokenPool.next().id).to.equal('unknown')
+      expect(tokenPool.next().id).to.equal('unscoped')
+    })
+
+    it('preserves ineligible priority queue tokens', function () {
+      const clock = sinon.useFakeTimers()
+      try {
+        const tokenPool = new TokenPool()
+        tokenPool.add('unscoped', { scopes: [] }, 0, 1)
+        tokenPool.add('scoped', { scopes: ['read:packages'] }, 0, 2)
+        expectPoolToBeExhausted(tokenPool)
+
+        clock.tick(3000)
+
+        expect(tokenPool.next(hasReadPackagesScope).id).to.equal('scoped')
+        expect(tokenPool.priorityQueue.size()).to.equal(1)
+        expect(tokenPool.priorityQueue.peek().id).to.equal('unscoped')
+      } finally {
+        clock.restore()
+      }
+    })
+  })
+
   it('updates data when an existing token is added again', function () {
     const tokenPool = new TokenPool()
 

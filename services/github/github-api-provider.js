@@ -188,6 +188,17 @@ class GithubApiProvider {
     }
   }
 
+  static tokenHasScopes(token, requiredScopes) {
+    if (requiredScopes.length === 0) {
+      return true
+    }
+    const tokenScopes = token.data?.scopes
+    return (
+      Array.isArray(tokenScopes) &&
+      requiredScopes.every(scope => tokenScopes.includes(scope))
+    )
+  }
+
   // Handle a 401 for a token. A single 401 may be transient, so rather than
   // evicting immediately, we count the failure, rotate to other tokens, and
   // retry this one when it next comes around. Only after
@@ -206,7 +217,7 @@ class GithubApiProvider {
     }
   }
 
-  async fetch(requestFetcher, url, options = {}) {
+  async fetch(requestFetcher, url, options = {}, requiredScopes = []) {
     const { baseUrl } = this
 
     let token
@@ -215,11 +226,16 @@ class GithubApiProvider {
     if (this.authType === this.constructor.AUTH_TYPES.TOKEN_POOL) {
       pool = this.poolForUrl(url)
       try {
-        token = pool.next()
+        token = pool.next(token =>
+          this.constructor.tokenHasScopes(token, requiredScopes),
+        )
       } catch (e) {
         log.error(e)
+        const scopeDescription = requiredScopes.length
+          ? ` with required scopes: ${requiredScopes.join(', ')}`
+          : ''
         throw new ImproperlyConfigured({
-          prettyMessage: 'Unable to select next GitHub token from pool',
+          prettyMessage: `Unable to select next GitHub token from pool${scopeDescription}`,
         })
       }
       tokenString = token.id

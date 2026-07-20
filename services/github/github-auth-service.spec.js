@@ -3,6 +3,7 @@ import { expect } from 'chai'
 import sinon from 'sinon'
 import { GithubAuthV3Service } from './github-auth-service.js'
 import GithubApiProvider from './github-api-provider.js'
+import { githubTokenScopes } from './github-token-scopes.js'
 
 describe('GithubAuthV3Service', function () {
   class DummyGithubAuthV3Service extends GithubAuthV3Service {
@@ -23,6 +24,10 @@ describe('GithubAuthV3Service', function () {
       })
       return { message: requiredString }
     }
+  }
+
+  class ScopedDummyGithubAuthV3Service extends DummyGithubAuthV3Service {
+    static requiredScopes = [githubTokenScopes.readPackages]
   }
 
   it('forwards custom Accept header', async function () {
@@ -67,6 +72,38 @@ describe('GithubAuthV3Service', function () {
           'X-GitHub-Api-Version': '2022-11-28',
         },
       },
+    )
+  })
+
+  it('selects a token with the scopes declared by the service', async function () {
+    const requestFetcher = sinon.stub().resolves({
+      buffer: '{"requiredString": "some-string"}',
+      res: {
+        statusCode: 200,
+        headers: {
+          'x-ratelimit-limit': 12500,
+          'x-ratelimit-remaining': 7955,
+          'x-ratelimit-reset': 123456789,
+        },
+      },
+    })
+    const githubApiProvider = new GithubApiProvider({
+      baseUrl: 'https://github-api.example.com',
+      authType: GithubApiProvider.AUTH_TYPES.TOKEN_POOL,
+      restApiVersion: '2022-11-28',
+    })
+    githubApiProvider.addToken('unscoped-token', { scopes: [] })
+    githubApiProvider.addToken('package-token', {
+      scopes: [githubTokenScopes.readPackages],
+    })
+
+    await ScopedDummyGithubAuthV3Service.invoke({
+      requestFetcher,
+      githubApiProvider,
+    })
+
+    expect(requestFetcher.firstCall.args[1].headers.Authorization).to.equal(
+      'token package-token',
     )
   })
 })
